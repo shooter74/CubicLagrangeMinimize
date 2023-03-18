@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import numpy as np
-import matplotlib.pyplot as plt
 
 def cubic_poly(x, a0, a1, a2, a3):
     return a0 + a1*x + a2*x**2 + a3*x**3
@@ -13,12 +12,24 @@ def polyfit4(x1, x2, x3, x4, y1, y2, y3, y4):
     '''
     A = np.array([[1, x1, x1**2, x1**3], [1, x2, x2**2, x2**3], [1, x3, x3**2, x3**3], [1, x4, x4**2, x4**3]])
     y = np.array([y1, y2, y3, y4])
-    ATA = A.transpose()@A
-    # print(ATA)# DEBUG
-    # print(np.linalg.matrix_rank(ATA))# DEBUG
-    # print(np.linalg.det(ATA))# DEBUG
     a = np.linalg.solve(A.transpose()@A, A.transpose()@y)
     return a
+
+def polyfit4_mpi3_pi3(y1, y2, y3, y4):
+    ''' Function to compute the coefficients of the cubic Lagrange polynomial that interpolates the four points (-pi/3, y1), (-pi/9, y2), (pi/9, y3), (pi/3, y4).
+        The coefficients are computed using a linear least-squares fit to the four points.
+        The matrix (A^T * A) is precomputed for efficiency
+    '''
+    y = np.array([y1, y2, y3, y4])
+    AT = np.array([[1, 1, 1, 1],
+                   [-np.pi/3, -np.pi/9, np.pi/9, np.pi/3],
+                   [np.pi**2/9, np.pi**2/81, np.pi**2/81, np.pi**2/9],
+                   [-np.pi**3/27, -np.pi**3/729, np.pi**3/729, np.pi**3/27]])   # A^T
+    ATAinv = np.array([[41/64, 0, -405/(64*np.pi**2), 0],
+                   [0, 3285/(64*np.pi**2), 0, -29889/(64*np.pi**4)],
+                   [-405/(64*np.pi**2), 0, 6561/(64*np.pi**4), 0],
+                   [0, -29889/(64*np.pi**4), 0, 295245/(64*np.pi**6)]])         # (A^T * A)^-1
+    return ATAinv@(AT@y)
 
 def map_interval(x, a1, b1, a2, b2):
     ''' Maps a value or array "x" from the interval [a1, b1] to the interval [a2, b2]. '''
@@ -48,7 +59,7 @@ def cubic_lagrange_minimize(f, a, b, tol=1e-6, callback=None):
         x0m, x1m, x2m, x3m = map_interval(x0, x0, x3, -np.pi/3, np.pi/3), map_interval(x1, x0, x3, -np.pi/3, np.pi/3), map_interval(x2, x0, x3, -np.pi/3, np.pi/3), map_interval(x3, x0, x3, -np.pi/3, np.pi/3)
 
         # compute Lagrange polynomial using least-squares fit to 4 points, which is equivalent to the cubic Lagrange polynomial
-        a0, a1, a2, a3 = polyfit4(x0m, x1m, x2m, x3m, f0, f1, f2, f3)
+        a0, a1, a2, a3 = polyfit4_mpi3_pi3(f0, f1, f2, f3)  # equivalent to a0, a1, a2, a3 = polyfit4(x0m, x1m, x2m, x3m, f0, f1, f2, f3)
         x_sol_1, x_sol_2, y_sol_1, y_sol_2, delta = None, None, None, None, None
 
         # Solve the first derivative of the Lagrange polynomial for a zero
@@ -119,15 +130,26 @@ def cubic_lagrange_minimize_callback_detailed(x_sol, y_sol, i, quadratic_solutio
     print(f'Current solution : f({x_sol}) = {y_sol}')
 
 if __name__ == '__main__':
-    def f(x):
-        # return x**2 + np.sin(5*x)
-        # return (x-1)**2
-        # return -x
-        # return np.exp(x)
-        # return np.exp(-x)
-        # return -np.exp(-x**2)
-        return np.exp(-x**2)
-        # return np.ones_like(x)
+    import colorsys
+    import matplotlib.pyplot as plt
+
+    functions_list = [
+        lambda x: x**2 + np.sin(5*x),
+        lambda x: (x-1)**2,
+        lambda x: -x,
+        lambda x: np.exp(x),
+        lambda x: np.exp(-x),
+        lambda x: -np.exp(-x**2),
+        lambda x: np.exp(-x**2),
+        lambda x: np.ones_like(x)
+    ]
+
+    def random_color(min_saturation=0.5, lightness_range=(0.5, 1.0)):
+        ''' Returns a random color where the maximum lightness is 0.5 and the saturation is always greater than 0.5. '''
+        h = np.random.uniform(0, 360)               # Hue is a value between 0 and 360
+        s = np.random.uniform(min_saturation, 1)    # Saturation is a value between min_saturation and 1
+        l = np.random.uniform(lightness_range[0], lightness_range[1])     # Lightness is a value between 0 and max_lightness
+        return [x for x in colorsys.hls_to_rgb(h/360, l, s)]# Convert HSL to RGB
 
     def test_cubic_lagrange_polynomial():
         x = np.linspace(0, 16, 100)
@@ -145,12 +167,14 @@ if __name__ == '__main__':
         plt.show()
     
     def test_cubic_lagrange_minimize():
-        a, b = -1.2, 1.5
-        x = np.linspace(a, b, 100)
-        x_min = cubic_lagrange_minimize(f, a, b, tol=1e-6, callback=cubic_lagrange_minimize_callback_detailed)
-        print('Solution : ', x_min, f(x_min))
-        plt.plot(x, f(x), 'b')
-        plt.plot(x_min, f(x_min), 'ro')
+        for f in functions_list:
+            a, b = -1.2, 1.5
+            x = np.linspace(a, b, 100)
+            x_min = cubic_lagrange_minimize(f, a, b, tol=1e-6, callback=cubic_lagrange_minimize_callback_detailed)
+            print('Solution : ', x_min, f(x_min))
+            c = random_color(.5, (0.5, 0.7))
+            plt.plot(x, f(x), color=c)
+            plt.plot(x_min, f(x_min), 'o', color=c)
         plt.grid()
         plt.show()
     
