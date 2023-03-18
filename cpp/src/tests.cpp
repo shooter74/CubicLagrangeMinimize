@@ -64,11 +64,13 @@ double dfct_07(double) {
 void test_CubicLagrangeMinimize() {
     std::vector<std::function<double(double)>> fcts = {fct_01, fct_02, fct_03, fct_04, fct_05, fct_06, fct_07};
     std::vector<std::function<double(double)>> dfcts = {dfct_01, dfct_02, dfct_03, dfct_04, dfct_05, dfct_06, dfct_07};
-    std::vector<double> mins = {-1.2, -10., -1.5, -10., -1., -2., -3.};
-    std::vector<double> maxs = {1.5, 10., 3., 5., 6., 3., 4.};
+    std::vector<double> mins = {-1.2, -2., -1.5, -10., -1., -2., -3.};
+    std::vector<double> maxs = {1.5, 3., 3., 5., 6., 3., 4.};
+    constexpr double tol = 1e-9;
     for(unsigned int i = 0 ; i < fcts.size() ; ++i) {
+        cout << "----------------------------------------------------------------------------------------------------\n";
         auto f = fcts[i]; auto df = dfcts[i];
-        auto x_min = CubicLagrangeMinimize(f, mins[i], maxs[i]);
+        auto x_min = CubicLagrangeMinimize(f, mins[i], maxs[i], tol, CubicLagrangeMinimize_GetDetailedCallback());
         cout << "[" << mins[i] << " " << maxs[i] << "]\tf(" << x_min << ") = " << f(x_min) << " df(x_min)/dt = " << df(x_min) << endl;
     }
 }
