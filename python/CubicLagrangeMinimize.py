@@ -21,6 +21,7 @@ def cubic_lagrange_minimize(f, a, b, tol=1e-6):
     x0, x1, x2, x3 = a, a*2./3. + b*1./3., a*1./3. + b*2./3., b
     f0, f3 = f(x0), f(x3)
     x_prev = x0
+    small_coefficient = 1e-9
     delta = 1# only needed to debug print
     x_sol_1 = 1# only needed to debug print
     x_sol_2 = 1# only needed to debug print
@@ -44,7 +45,7 @@ def cubic_lagrange_minimize(f, a, b, tol=1e-6):
         print('p : ', a0, a1, a2, a3)
 
         # Solve the first derivative of the Lagrange polynomial for a zero
-        if np.abs(a3) > 1e-9:
+        if np.abs(a3) > small_coefficient:
             delta = -3*a1*a3 + a2**2
 
             if delta < 0:
@@ -60,7 +61,7 @@ def cubic_lagrange_minimize(f, a, b, tol=1e-6):
                 x_sol = x_sol_1 if y_sol_1 < y_sol_2 else x_sol_2
                 y_sol = y_sol_1 if y_sol_1 < y_sol_2 else y_sol_2
             
-        elif np.abs(a2) > 1e-9: # if a3 is zero, then the Lagrange polynomial is a quadratic polynomial
+        elif np.abs(a2) > small_coefficient: # if a3 is zero, then the Lagrange polynomial is a quadratic polynomial
             x_sol = -a1/(2*a2)
             y_sol = cubic_poly(x_sol, a0, a1, a2, a3)
         else:   # if a3 and a2 are zero, then the Lagrange polynomial is a linear polynomial
